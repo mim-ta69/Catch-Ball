@@ -5,188 +5,136 @@ from cvzone.HandTrackingModule import HandDetector
 import random
 from pygame import mixer
 
-width = 1366
-height = 768
+# تنظیمات صفحه
+WIDTH, HEIGHT = 1366, 768
 
-# opencv code
+# تنظیمات OpenCV
 cap = cv2.VideoCapture(1)
-cap.set(3, width)
-cap.set(4, height)
+cap.set(3, WIDTH)
+cap.set(4, HEIGHT)
 
-# Hand Detector
+# تنظیمات تشخیص دست
 detector = HandDetector(maxHands=1, detectionCon=0.8)
 
-# Initialize the pygame
+# راه‌اندازی Pygame
 pygame.init()
 
-# background sounds
+# پخش موسیقی پس‌زمینه
 mixer.music.load('music/background.mp3')
 mixer.music.play(loops=-1)
-
 closedHand_sound = mixer.Sound('music/slap.mp3')
 catching_sound = mixer.Sound('music/catching_sound.wav')
 
-# Define the screen
-screen = pygame.display.set_mode((width, height))
-
-# Timer
-clock = pygame.time.Clock()
-currentTime = 1
-
-# Title and Icon
+# تعریف صفحه نمایش
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Catch Ball")
 icon = pygame.image.load('images/ball_32.png').convert_alpha()
 pygame.display.set_icon(icon)
 backgroundImg = pygame.image.load('images/TennisBack.png').convert()
 
-# Player
-playerPosition = [370, 480]
-playerMovement = [0, 0]
-x = width/2 - 64
-y = height/2 - 64
+# تنظیمات دست
 openHandImg = pygame.image.load('images/openHand.png').convert_alpha()
 openHandImg = pygame.transform.scale(openHandImg, (128, 128))
-openHand_rect = openHandImg.get_rect(topleft=(x, y))
-
 closedHandImg = pygame.image.load('images/closedHand.png').convert_alpha()
 closedHandImg = pygame.transform.scale(closedHandImg, (128, 128))
-closedHand_rect = closedHandImg.get_rect(topleft=(x, y))
+openHand_rect = openHandImg.get_rect()
+closedHand_rect = closedHandImg.get_rect()
 
-# Insects
-InsectImg = []
-InsectX = []
-InsectY = []
-insect_rect = []
-insectMoveX = []
-insectMoveY = []
-numberOfInsects = 10
-for i in range(numberOfInsects):
-    InsectX.append(random.randint(0, 1366))
-    InsectY.append(random.randint(0, 768))
-    InsectImg.append(pygame.image.load('images/ball_32.png').convert_alpha())
-    #InsectImg.append(pygame.transform.scale(InsectImg, (32, 32)))
-    insect_rect.append(InsectImg[i].get_rect(topleft=(InsectX[i], InsectY[i])))
-    insectMoveX.append(10)
-    insectMoveY.append(8)
+# تنظیمات حشرات
+NUM_INSECTS = 10
+insects = []
+for _ in range(NUM_INSECTS):
+    img = pygame.image.load('images/ball_32.png').convert_alpha()
+    rect = img.get_rect(topleft=(random.randint(0, WIDTH), random.randint(0, HEIGHT)))
+    move_x, move_y = random.choice([-10, 10]), random.choice([-8, 8])
+    insects.append({'img': img, 'rect': rect, 'dx': move_x, 'dy': move_y})
 
-## Game Texts
- # Score Text
-score_value = 0
+# تنظیمات امتیاز و تایمر
+score = 0
 font = pygame.font.Font('freesansbold.ttf', 32)
 gameOver_font = pygame.font.Font('freesansbold.ttf', 100)
-textX = 10
-textY = 10
-def show_score(x, y):
-    score = font.render("Score : " + str(score_value), True, (255, 255, 255))
-    screen.blit(score, (x, y))
+clock = pygame.time.Clock()
+startTime = pygame.time.get_ticks()
 
-def show_timer():
-    if currentTime/1000 >= 80:
-        timer = font.render("Time: " + str(int(101 - currentTime / 1000)), True, (255, 0, 0))
-    else:
-        timer = font.render("Time: " + str(int(101 - currentTime/1000)), True, (255, 255, 255))
-    screen.blit(timer, (1210, 10))
-    if currentTime / 1000 >= 100:
-        gameOver = gameOver_font.render("Game Over!", True, (255, 0, 0))
-        screen.blit(gameOver, (width/2 - 300, height/2 - 30))
-
-
-indexes_for_closed_fingers = [8, 12, 16, 20]
-################################################################################################## Game Loop
-catch_insect_with_openHand = False
-fingers = [0, 0, 0, 0]
-while True:
-    # Game code
+# حلقه اصلی بازی
+running = True
+while running:
     screen.blit(backgroundImg, (0, 0))
+    
+    # رویدادهای بازی
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             cap.release()
             cv2.destroyAllWindows()
             pygame.quit()
             sys.exit()
-
-    # opencv code
+    
+    # پردازش تصویر
     success, frame = cap.read()
-    # Mediapipe code for hand detection and Landmarks
     hands, frame = detector.findHands(frame)
-
-    # Landmarks value - (x,y,z) * 21
+    
     if hands:
-        #Get the first hand detected
-        lmList = hands[0]
-        positionOfTheHand = lmList['lmList']
-        openHand_rect.left = (positionOfTheHand[9][0] - 200) * 1.5
-        openHand_rect.top = (positionOfTheHand[9][1] - 200) * 1.5
-        closedHand_rect.left = (positionOfTheHand[9][0] - 200) * 1.5
-        closedHand_rect.top = (positionOfTheHand[9][1] - 200) * 1.5
-
-        ## open or closed hand
-        hand_is_closed = 0 #for playing the sound once when hand is closed
-        for index in range(0, 4):
-            if positionOfTheHand[indexes_for_closed_fingers[index]][1] > positionOfTheHand[indexes_for_closed_fingers[index] - 2][1]:
-                fingers[index] = 1
-            else:
-                fingers[index] = 0
-            if fingers[0]*fingers[1]*fingers[2]*fingers[3]:
-                # playing close hand sound
-                if hand_is_closed and catch_insect_with_openHand == False:
-                    closedHand_sound.play()
-                hand_is_closed = 0
-                screen.blit(closedHandImg, closedHand_rect)
-                # detect catching
-                for iteration in range(numberOfInsects):
-                    if openHand_rect.colliderect(insect_rect[iteration]) and catch_insect_with_openHand:
-                        score_value += 1
-                        catching_sound.play()
-                        catch_insect_with_openHand = False
-                        insect_rect[iteration] = InsectImg[iteration].get_rect(topleft=(random.randint(0, 1366), random.randint(0, 768)))
-
-                catch_insect_with_openHand = False
-            else:
-                screen.blit(openHandImg, openHand_rect)
-                hand_is_closed = 1
-                for iterate in range(numberOfInsects):
-                    if openHand_rect.colliderect(insect_rect[iterate]):
-                        catch_insect_with_openHand = True
-
-
-
-
-
-    # Opencv Screen
-    #frame = cv2.resize(frame, (0, 0), None, 0.3, 0.3)
-    # It's something optional If you don't want to see your hand, omit this line of code
-    cv2.imshow("webcam", frame)
-
-    # Game screen
-    ## placing Insects
-
-    ## moving Insects
-    for i in range(numberOfInsects):
-            # moving X
-        insect_rect[i].right += insectMoveX[i]
-        if insect_rect[i].right <= 16:
-            insectMoveX[i] += 10
-        elif insect_rect[i].right >= width:
-            insectMoveX[i] -= 10
-
-            # moving Y
-        insect_rect[i].top += insectMoveY[i]
-        if insect_rect[i].top <= 0:
-            insectMoveY[i] += 8
-        elif insect_rect[i].top >= height-32:
-            insectMoveY[i] -= 8
-        screen.blit(InsectImg[i], insect_rect[i])
-
-    # showing texts
-    show_score(textX, textY)
-    currentTime = pygame.time.get_ticks()
-    show_timer()
-
-    # display update
+        lmList = hands[0]['lmList']
+        hand_x = lmList[9][0]
+        hand_y = lmList[9][1]
+        
+        # قرینه کردن محور X برای حرکت صحیح دست
+        fixed_x = WIDTH - (hand_x * 1.5)
+        fixed_y = hand_y * 1.5
+        
+        # تشخیص باز یا بسته بودن دست
+        fingers = [lmList[i][1] > lmList[i-2][1] for i in [8, 12, 16, 20]]
+        hand_closed = all(fingers)
+        
+        # تنظیم موقعیت دست در بازی
+        if hand_closed:
+            closedHand_rect.topleft = (fixed_x - 64, fixed_y - 64)
+            screen.blit(closedHandImg, closedHand_rect)
+        else:
+            openHand_rect.topleft = (fixed_x - 64, fixed_y - 64)
+            screen.blit(openHandImg, openHand_rect)
+        
+        # بررسی گرفتن حشرات
+        for insect in insects:
+            # Only catch insects when hand is closed
+            if closedHand_rect.colliderect(insect['rect']) and hand_closed:
+                catching_sound.play()
+                score += 1
+                insect['rect'].topleft = (random.randint(0, WIDTH), random.randint(0, HEIGHT))
+    
+    # حرکت حشرات
+    for insect in insects:
+        insect['rect'].x += insect['dx']
+        insect['rect'].y += insect['dy']
+        
+        # برخورد با دیواره‌ها
+        if insect['rect'].left <= 0 or insect['rect'].right >= WIDTH:
+            insect['dx'] *= -1
+        if insect['rect'].top <= 0 or insect['rect'].bottom >= HEIGHT:
+            insect['dy'] *= -1
+        
+        screen.blit(insect['img'], insect['rect'])
+    
+    # نمایش امتیاز و تایمر
+    elapsed_time = (pygame.time.get_ticks() - startTime) // 1000
+    timer_text = font.render(f"Time: {100 - elapsed_time}", True, (255, 255, 255))
+    score_text = font.render(f"Score: {score}", True, (255, 255, 255))
+    screen.blit(timer_text, (WIDTH - 150, 10))
+    screen.blit(score_text, (10, 10))
+    
+    # پایان بازی
+    if elapsed_time >= 100:
+        game_over_text = gameOver_font.render("Game Over!", True, (255, 0, 0))
+        screen.blit(game_over_text, (WIDTH // 2 - 300, HEIGHT // 2 - 30))
+        pygame.display.update()
+        pygame.time.delay(3000)
+        running = False
+    
+    # نمایش فریم دوربین
+    cv2.imshow("Webcam", frame)
+    
+    # بروزرسانی صفحه
     pygame.display.update()
     clock.tick(60)
 
-
-
-
+pygame.quit()
