@@ -56,6 +56,11 @@ gameOver_font = pygame.font.Font('freesansbold.ttf', 100)
 clock = pygame.time.Clock()
 startTime = pygame.time.get_ticks()
 
+def save_score_toFile(score):
+    with open("./ScoreBoard.txt", "a") as f :
+        score_str = f"Final Score >> {score}\n"
+        f.write(score_str)
+
 # Main game loop
 running = True
 while running:
@@ -106,7 +111,7 @@ while running:
                 # Increase speed only for the caught insect
                 insect['dx'] *= 1.2  # Increase X-axis speed
                 insect['dy'] *= 1.2  # Increase Y-axis speed
-    
+
     # Move insects
     for insect in insects:
         insect['rect'].x += insect['dx']
@@ -127,13 +132,21 @@ while running:
     screen.blit(timer_text, (WIDTH - 150, 10))
     screen.blit(score_text, (10, 10))
     
+    # Save scores to .txt file
+
     # End game condition
-    if elapsed_time >= 30:
-        game_over_text = gameOver_font.render("Game Over!", True, (255, 0, 0))
+    if elapsed_time >= 5:
+        save_score_toFile(score)
+        game_over_text = gameOver_font.render("Your times left!", True, (255, 0, 0))
         screen.blit(game_over_text, (WIDTH // 2 - 300, HEIGHT // 2 - 30))
+        
+        score_text = font.render(f"Final score: {score}",  True, (0, 0, 0))
+        screen.blit(score_text, (WIDTH // 2 - 100, HEIGHT // 2 + 60))
+
         pygame.display.update()
         pygame.time.delay(3000)
         running = False
+    
     
     # Show webcam frame
     cv2.imshow("Webcam", frame)
